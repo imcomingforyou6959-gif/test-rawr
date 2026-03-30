@@ -93,9 +93,9 @@ Bracket.Utilities = {
     end,
     GetType = function(Self, Object, Type, Default, UseProxy)
     if typeof(Object) == Type then
-        return Object
+        return UseProxy and Self.Proxify(Object) or Object
     end
-    return Default
+    return UseProxy and Self.Proxify(Default) or Default
 end,
     GetTextBounds = function(Text, Font, Size)
         -- Font should be a Font object or Enum.Font
@@ -3743,7 +3743,7 @@ function Bracket.Window(Self, Window)
         end
         return Tab
     end
-    return Window
+    return Bracket.Utilities.Proxify(Window)
 end
 
 function Bracket.Cursor(Self, Cursor)
