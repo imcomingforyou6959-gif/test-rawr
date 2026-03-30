@@ -1869,7 +1869,7 @@ Bracket.Templates = {
             end
         end)
 
-        return Bracket.Utilities:Proxify(Window)
+        return Window
     end,
     Tab = function(Tab, Window)
         Tab = Bracket.Utilities:GetType(Tab, "table", {}, true)
