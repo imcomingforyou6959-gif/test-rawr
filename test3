@@ -5,6 +5,7 @@ local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
 local PlayerService = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
 
 local GuiInset = GuiService:GetGuiInset()
 local LocalPlayer = PlayerService.LocalPlayer
@@ -2994,16 +2995,17 @@ Bracket.Templates = {
 		return Toggle
 	end,
 	Slider = function(Slider, ParentElement, Window)
-		Slider = Bracket.Utilities:GetType(Slider, "table", {}, true)
-		Slider.Name = Bracket.Utilities:GetType(Slider.Name, "string", "Slider")
-		Slider.Flag = Bracket.Utilities:GetType(Slider.Flag, "string", Slider.Name)
+    Slider = Bracket.Utilities:GetType(Slider, "table", {}, true)
+    Slider.Name = Bracket.Utilities:GetType(Slider.Name, "string", "Slider")
+    Slider.Flag = Bracket.Utilities:GetType(Slider.Flag, "string", Slider.Name)
 
-		Slider.Min = Bracket.Utilities:GetType(Slider.Min, "number", 0)
-		Slider.Max = Bracket.Utilities:GetType(Slider.Max, "number", 100)
-		Slider.Precise = Bracket.Utilities:GetType(Slider.Precise, "number", 0)
-		Slider.Unit = Bracket.Utilities:GetType(Slider.Unit, "string", "")
-		Slider.Value = Bracket.Utilities:GetType(Slider.Value, "number", Slider.Max / 2)
-		-- Slider.Callback = Bracket.Utilities:GetType(Slider.Callback, "function", function() end)
+    Slider.Min = Bracket.Utilities:GetType(Slider.Min, "number", 0)
+    Slider.Max = Bracket.Utilities:GetType(Slider.Max, "number", 100)
+    Slider.Precise = Bracket.Utilities:GetType(Slider.Precise, "number", 0)
+    Slider.Unit = Bracket.Utilities:GetType(Slider.Unit, "string", "")
+    Slider.Value = Bracket.Utilities:GetType(Slider.Value, "number", Slider.Max / 2)
+    Slider.TweenDuration = Bracket.Utilities:GetType(Slider.TweenDuration, "number", 0.2)
+	-- Slider.Callback = Bracket.Utilities:GetType(Slider.Callback, "function", function() end)
 
 		local SliderInstance = Slider.Slim and Bracket.Instances.SlimSlider() or Bracket.Instances.Slider()
 
@@ -3104,7 +3106,15 @@ Bracket.Templates = {
 				if Value % 2 == 1 then return end
 			end
 
-			SliderInstance.Background.Bar.Size = UDim2.fromScale(Bracket.Utilities.Scale(Value, Slider.Min, Slider.Max, 0, 1), 1)
+			local targetScale = Bracket.Utilities.Scale(Value, Slider.Min, Slider.Max, 0, 1)
+        local targetSize = UDim2.fromScale(targetScale, 1)
+
+        if Slider.TweenDuration > 0 then
+            local tween = TweenService:Create(SliderInstance.Background.Bar, TweenInfo.new(Slider.TweenDuration), { Size = targetSize })
+            tween:Play()
+        else
+            SliderInstance.Background.Bar.Size = targetSize
+        end
 			SliderInstance.Value.PlaceholderText = #Slider.Unit == 0 and Value or `{Value} {Slider.Unit}`
 
 			Slider.Internal.Value = Value
@@ -3584,6 +3594,7 @@ Bracket.Templates = {
 		Dropdown.Name = Bracket.Utilities:GetType(Dropdown.Name, "string", "Dropdown")
 		Dropdown.Flag = Bracket.Utilities:GetType(Dropdown.Flag, "string", Dropdown.Name)
 		Dropdown.List = Bracket.Utilities:GetType(Dropdown.List, "table", {})
+		Dropdown.Searchable = Bracket.Utilities:GetType(Dropdown.Searchable, "boolean", false)
 
 		local DropdownInstance = Bracket.Instances.Dropdown()
 		local OptionContainerInstance = Bracket.Instances.OptionContainer()
@@ -3604,6 +3615,34 @@ Bracket.Templates = {
 
 		DropdownInstance.Parent = Parent
 		OptionContainerInstance.Parent = Bracket.Screen
+
+		if Dropdown.Searchable then
+    	local SearchBox = Instance.new("TextBox")
+   		SearchBox.Name = "SearchBox"
+    	SearchBox.Size = UDim2.new(1, -10, 0, 18)
+    	SearchBox.PlaceholderText = "Search..."
+    	SearchBox.Text = ""
+    	SearchBox.BackgroundColor3 = Color3.fromRGB(63,63,63)
+    	SearchBox.TextColor3 = Color3.fromRGB(255,255,255)
+    	SearchBox.FontFace = Font.fromEnum(Enum.Font.SourceSans)
+    	SearchBox.LayoutOrder = 0  -- keeps it at the top of the list
+    	SearchBox.Parent = OptionContainerInstance
+
+		SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local search = SearchBox.Text:lower()
+    for _, opt in pairs(Dropdown.List) do
+        opt.Instance.Visible = search == "" or opt.Name:lower():find(search) ~= nil
+    end
+end)
+
+    -- Filter options when text changes
+    SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local search = SearchBox.Text:lower()
+        for _, opt in pairs(Dropdown.List) do
+            opt.Instance.Visible = search == "" or opt.Name:lower():find(search) ~= nil
+        end
+    end)
+end
 
 		DropdownInstance.Title.Text = Dropdown.Name
 		DropdownInstance.Title.Visible = not Dropdown.HideName
@@ -3691,9 +3730,47 @@ Bracket.Templates = {
 		end
 
 		DropdownInstance.MouseButton1Click:Connect(function()
-			if not OptionContainerInstance.Visible and OptionContainerInstance.ListLayout.AbsoluteContentSize.Y ~= 0 then
-				Bracket.Utilities.ClosePopUps()
-				OptionContainerInstance.Visible = true
+    if not OptionContainerInstance.Visible and OptionContainerInstance.ListLayout.AbsoluteContentSize.Y ~= 0 then
+        Bracket.Utilities.ClosePopUps()
+
+        -- Reset search box if searchable
+        if Dropdown.Searchable then
+            local searchBox = OptionContainerInstance:FindFirstChild("SearchBox")
+            if searchBox then
+                searchBox.Text = ""
+            end
+        end
+
+        OptionContainerInstance.Visible = true
+
+        ContainerRender = RunService.RenderStepped:Connect(function()
+            if not OptionContainerInstance.Visible then ContainerRender:Disconnect() end
+
+            local TabPosition = Window.Instance.TabContainer.AbsolutePosition.Y + Window.Instance.TabContainer.AbsoluteSize.Y
+            local DropdownPosition = DropdownInstance.Background.AbsolutePosition.Y + DropdownInstance.Background.AbsoluteSize.Y
+            if TabPosition < DropdownPosition then
+                OptionContainerInstance.Visible = false
+            end
+
+            TabPosition = Window.Instance.TabContainer.AbsolutePosition.Y
+            DropdownPosition = DropdownInstance.Background.AbsolutePosition.Y
+            if TabPosition > DropdownPosition then
+                OptionContainerInstance.Visible = false
+            end
+
+            OptionContainerInstance.Position = UDim2.fromOffset(
+                DropdownInstance.Background.AbsolutePosition.X + 1,
+                (DropdownInstance.Background.AbsolutePosition.Y + GuiInset.Y) + DropdownInstance.Background.AbsoluteSize.Y + 4
+            )
+            OptionContainerInstance.Size = UDim2.fromOffset(
+                DropdownInstance.Background.AbsoluteSize.X,
+                math.clamp(OptionContainerInstance.ListLayout.AbsoluteContentSize.Y, 14, 84) + 6
+            )
+        end)
+    else
+        OptionContainerInstance.Visible = false
+    end
+end)
 
 				ContainerRender = RunService.RenderStepped:Connect(function()
 					if not OptionContainerInstance.Visible then ContainerRender:Disconnect() end
@@ -3756,10 +3833,11 @@ Bracket.Templates = {
 		end)
 
 		-- // Dropdown Update
-		for Index, Option in pairs(Dropdown.List) do
-			Option = AddOption(Option, Index)
-			Dropdown.List[Index] = Option
-		end
+local startOrder = Dropdown.Searchable and 1 or 0
+for Index, Option in pairs(Dropdown.List) do
+    Option = AddOption(Option, Index + startOrder)  -- offset for search box
+    Dropdown.List[Index] = Option
+end
 		for Index, Option in pairs(Dropdown.List) do
 			if Option.Value then Option.Value = true end
 		end
