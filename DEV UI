@@ -1,5 +1,4 @@
--- Bracket UI Library v3.5
--- Improved version with bug fixes and enhancements
+-- hi
 
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
@@ -93,9 +92,9 @@ Bracket.Utilities = {
     end,
     GetType = function(Self, Object, Type, Default, UseProxy)
     if typeof(Object) == Type then
-        return UseProxy and Self.Proxify(Object) or Object
+        return UseProxy and Self:Proxify(Object) or Object
     end
-    return UseProxy and Self.Proxify(Default) or Default
+    return UseProxy and Self:Proxify(Default) or Default
 end,
     GetTextBounds = function(Text, Font, Size)
         -- Font should be a Font object or Enum.Font
@@ -130,7 +129,7 @@ end,
         end
         return true
     end,
-    -- Generate unique flag name
+        -- Generate unique flag name
     GenerateUniqueFlag = function(Flag)
         local newFlag = Flag
         local count = 1
@@ -139,7 +138,35 @@ end,
             count = count + 1
         end
         return newFlag
-    end
+    end,
+
+    Proxify = function(Table)
+        local Proxy, Events = {}, {}
+        Proxy.Internal = Table
+
+        function Proxy:GetPropertyChangedSignal(Property)
+            local PropertyEvent = Instance.new("BindableEvent")
+            Events[Property] = Events[Property] or {}
+            table.insert(Events[Property], PropertyEvent)
+            return PropertyEvent.Event
+        end
+
+        setmetatable(Proxy, {
+            __index = function(_, Key)
+                return Table[Key]
+            end,
+            __newindex = function(_, Key, Value)
+                local OldValue = Table[Key]
+                Table[Key] = Value
+                if Events[Key] then
+                    for _, Event in ipairs(Events[Key]) do
+                        Event:Fire(Value, OldValue)
+                    end
+                end
+            end
+        })
+        return Proxy
+    end,
 }
 
 -- ========== Instance Templates ==========
@@ -511,7 +538,7 @@ Bracket.Instances = {
         Stroke2.LineJoinMode = Enum.LineJoinMode.Miter
         Stroke2.Color = Color3.fromRGB(63, 63, 63)
         Stroke2.Parent = TabButtonContainer
-        return Window
+        return Bracket.Utilities:Proxify(Window)
     end,
     Tab = function()
         local Tab = Instance.new("ScrollingFrame")
@@ -1842,7 +1869,7 @@ Bracket.Templates = {
             end
         end)
 
-        return Window
+        return Bracket.Utilities:Proxify(Window)
     end,
     Tab = function(Tab, Window)
         Tab = Bracket.Utilities:GetType(Tab, "table", {}, true)
