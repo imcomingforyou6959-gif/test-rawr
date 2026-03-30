@@ -92,11 +92,11 @@ Bracket.Utilities = {
         return true
     end,
     GetType = function(Self, Object, Type, Default, UseProxy)
-        if typeof(Object) == Type then
-            return UseProxy and Self.Proxify(Object) or Object
-        end
-        return UseProxy and Self.Proxify(Default) or Default
-    end,
+    if typeof(Object) == Type then
+        return Object
+    end
+    return Default
+end,
     GetTextBounds = function(Text, Font, Size)
         -- Font should be a Font object or Enum.Font
         return TextService:GetTextSize(Text, Size.Y, Font, Vector2.new(Size.X, 1e6))
