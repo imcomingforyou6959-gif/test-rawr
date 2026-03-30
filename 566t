@@ -3770,7 +3770,7 @@ function Bracket.Window(Self, Window)
         end
         return Tab
     end
-    return Bracket.Utilities.Proxify(Window)
+    return Window   -- raw frame, not proxied
 end
 
 function Bracket.Cursor(Self, Cursor)
